@@ -11,7 +11,7 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "./firebaseConfig"; // Adjust path as needed
+import { auth, db } from "./firebaseConfig";
 import { SparklesCore } from "@/ui/sparkles";
 
 const SignUp: React.FC = () => {
@@ -32,7 +32,7 @@ const SignUp: React.FC = () => {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
-        password
+        password,
       );
       const user = userCredential.user;
 
@@ -85,7 +85,7 @@ const SignUp: React.FC = () => {
           maxTopicRequests: 10,
           photoURL: user.photoURL,
         },
-        { merge: true }
+        { merge: true },
       ); // merge: true won't overwrite existing data
 
       console.log("Google signup successful:", user.uid);

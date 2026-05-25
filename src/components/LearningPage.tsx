@@ -86,7 +86,7 @@ const LearningPage = () => {
         const storageRef = ref(storage, "/");
         const result = await listAll(storageRef);
         const videoRefs = result.items.filter((item) =>
-          item.name.toLowerCase().endsWith(".mp4")
+          item.name.toLowerCase().endsWith(".mp4"),
         );
         videoRefs.sort((a, b) => {
           const sceneA = a.name.match(/_Scene(\d+)\.mp4$/i);
@@ -97,7 +97,7 @@ const LearningPage = () => {
           return a.name.localeCompare(b.name);
         });
         const urls = await Promise.all(
-          videoRefs.map((videoRef) => getDownloadURL(videoRef))
+          videoRefs.map((videoRef) => getDownloadURL(videoRef)),
         );
         setVideoURLs(urls);
         setLoading(false);
@@ -109,12 +109,10 @@ const LearningPage = () => {
     fetchVideos();
   }, []);
 
-  // Load notes when component mounts
   useEffect(() => {
     loadNotes();
   }, []);
 
-  // Add this useEffect after the existing useEffects, around line 120
   useEffect(() => {
     const handleBeforeUnload = () => {
       localStorage.removeItem("userId");
@@ -148,7 +146,7 @@ const LearningPage = () => {
   ];
 
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(
-    null
+    null,
   );
   const [hasAnswered, setHasAnswered] = useState(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -242,7 +240,7 @@ const LearningPage = () => {
       if (isEditingNote && editingNoteId) {
         // Update existing note
         const updatedNotes = notes.map((note) =>
-          note.id === editingNoteId ? noteData : note
+          note.id === editingNoteId ? noteData : note,
         );
         await setDoc(doc(db, "userNotes", userId), { notes: updatedNotes });
         setNotes(updatedNotes);
@@ -301,7 +299,7 @@ const LearningPage = () => {
   // Translation function
   const translateText = async (
     text: string,
-    targetLanguage: string
+    targetLanguage: string,
   ): Promise<string> => {
     if (targetLanguage === "en-US") {
       return text; // Return original text for English
@@ -320,7 +318,7 @@ const LearningPage = () => {
             "api-key": MURF_API_KEY,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.data.translations && response.data.translations.length > 0) {
@@ -337,7 +335,7 @@ const LearningPage = () => {
 
   // Handle language change
   const handleLanguageChange = async (
-    language: (typeof LANGUAGE_OPTIONS)[0]
+    language: (typeof LANGUAGE_OPTIONS)[0],
   ) => {
     // Stop all current audio first
     stopAllAudio();
@@ -348,7 +346,7 @@ const LearningPage = () => {
     // Translate the narration
     const translated = await translateText(
       currentSlide.narration,
-      language.code
+      language.code,
     );
     setTranslatedNarration(translated);
   };
@@ -400,7 +398,7 @@ const LearningPage = () => {
               Accept: "application/json",
               "api-key": MURF_API_KEY,
             },
-          }
+          },
         );
 
         if (cancelled) return;
@@ -425,7 +423,7 @@ const LearningPage = () => {
             if (!audio) return;
             const currentTime = audio.currentTime;
             const currentWord = wordTimingsData.find(
-              (w) => currentTime >= w.start && currentTime <= w.end
+              (w) => currentTime >= w.start && currentTime <= w.end,
             );
             if (currentWord) {
               setCurrentWordIndex(currentWord.index);
@@ -459,7 +457,7 @@ const LearningPage = () => {
       } catch (e) {
         if (!cancelled) {
           setMurfError(
-            "Failed to fetch narration audio from Murf. See console for details."
+            "Failed to fetch narration audio from Murf. See console for details.",
           );
           console.error(e);
         }
@@ -516,7 +514,7 @@ const LearningPage = () => {
             Authorization: `Bearer ${VAPI_API_KEY}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.data?.id) {
@@ -559,7 +557,7 @@ const LearningPage = () => {
         <div className="z-10 flex mb-8">
           <div
             className={cn(
-              "group rounded-full border border-black/5 bg-neutral-900 text-base transition-all ease-in hover:cursor-pointer hover:bg-neutral-800 shadow-lg"
+              "group rounded-full border border-black/5 bg-neutral-900 text-base transition-all ease-in hover:cursor-pointer hover:bg-neutral-800 shadow-lg",
             )}
           >
             <AnimatedShinyText className="inline-flex items-center justify-center px-6 py-2.5 font-medium text-lg transition ease-out">
@@ -780,8 +778,8 @@ const LearningPage = () => {
                         correctAnswerIndex === index
                           ? "bg-green-500/30 border-green-500/50 text-white"
                           : selectedAnswerIndex === index
-                          ? "bg-red-500/30 border-red-500/50 text-white"
-                          : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
+                            ? "bg-red-500/30 border-red-500/50 text-white"
+                            : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
                       } transition-all duration-200 ${
                         hasAnswered && "cursor-default"
                       }`}
@@ -983,7 +981,7 @@ const LearningPage = () => {
                         .sort(
                           (a, b) =>
                             new Date(b.timestamp).getTime() -
-                            new Date(a.timestamp).getTime()
+                            new Date(a.timestamp).getTime(),
                         )
                         .map((note) => (
                           <div

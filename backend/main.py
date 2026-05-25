@@ -12,10 +12,8 @@ import firebase_admin
 from firebase_admin import credentials, storage
 import uuid
 load_dotenv()
-cred = credentials.Certificate("lerno-998e4-firebase-adminsdk-fbsvc-736e959000.json")
-# firebase_admin.initialize_app(cred, {"storageBucket": "lerno-cd286.firebasestorage.app"})
-firebase_admin.initialize_app(cred, {"storageBucket": "lerno-998e4.firebasestorage.app"})
-# For Storing Videos and manim Generation
+cred = credentials.Certificate("lerno-13022-firebase-adminsdk-fbsvc-a78f0ef735.json")
+firebase_admin.initialize_app(cred, {"storageBucket": "lerno-13022.firebasestorage.app"})
 bucket = storage.bucket()
 
 anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -25,7 +23,7 @@ if not anthropic_api_key:
     raise ValueError("ANTHROPIC_API_KEY not found in environment variables or .env file")
 
 model = ChatAnthropic(
-    model_name="claude-3-7-sonnet-20250219",
+    model_name="claude-sonnet-4-5-20250929",
     anthropic_api_key=anthropic_api_key,
     temperature=0.7,
     max_tokens=4000
@@ -472,7 +470,6 @@ class prompt(BaseModel):
 async def index(item:prompt):
     """API endpoint to generate educational content"""
     try:
-        # Generate educational content from the prompt
         result = generate_educational_content(item.prompt)
         video_urls=[]
         for scene in result.get("scenes", []):

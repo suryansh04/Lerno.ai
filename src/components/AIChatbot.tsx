@@ -16,7 +16,7 @@ const AIChatbot = ({ lessonTitle, lessonContent }) => {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
   const genAI = new GoogleGenerativeAI(API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const [chatHistory, setChatHistory] = useState([]);
 
@@ -47,16 +47,21 @@ const AIChatbot = ({ lessonTitle, lessonContent }) => {
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 100,
+          maxOutputTokens: 512,
         },
       });
 
-      // Send message with context about the current lesson
       const result = await chat.sendMessage(`
 You are a concise, friendly, and intelligent AI tutor assisting a student who is learning a lesson titled: "${lessonTitle}".
 
 The content of the lesson is as follows:
 "${lessonContent}"
+
+IMPORTANT LANGUAGE INSTRUCTION:
+- First, detect the language of the student's question
+- If the question is in Hindi or Hinglish (mix of Hindi and English), respond ENTIRELY in Hindi using Devanagari script
+- If the question is in English, respond in English
+- Match your response language to the student's question language
 
 When the student asks a question, your job is to:
 - Focus strictly on the topic of the lesson
@@ -67,7 +72,6 @@ When the student asks a question, your job is to:
 
 The student's question is: ${inputText}
 `);
-
       // Get the response text
       const responseText = result.response.text();
 
