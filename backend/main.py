@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import PromptTemplate
 from langchain_community.utilities import WikipediaAPIWrapper
@@ -11,6 +12,7 @@ import subprocess
 import firebase_admin
 from firebase_admin import credentials, storage
 import uuid
+import shutil
 load_dotenv()
 cred = credentials.Certificate("lerno-13022-firebase-adminsdk-fbsvc-a78f0ef735.json")
 firebase_admin.initialize_app(cred, {"storageBucket": "lerno-13022.firebasestorage.app"})
@@ -81,40 +83,6 @@ The description should be a few sentences, enough for someone to understand what
 
 Output only the plaintext JSON format of the frames. DO NOT OUTPUT MARKDOWN. DO NOT INCLUDE A PREAMBLE OR POSTAMBLE."""
 )
-
-############################################################---- OLD PROMPT --------##########################################################################
-# SCENE_AGENT_PROMPT_TEMPLATE = PromptTemplate(
-#     input_variables=["frame"],
-#     template="""Given the following, generate a script and animation description in the style of 3Blue1Brown.
-
-# {frame}
-
-# The script will be read orally to the student. This should not take longer than 10-15 seconds.
-# The animation description should be descriptive of what should be shown on the screen along with relevant positional information. (e.g., The number line should be centered vertically on the screen with a range of -10 to 10 with ticks for every 0.2, there is a blue arrow above the number line pointing from 0 to +5. The arrow will then shrink until it points to +2.)
-
-# IMPORTANT: Do NOT include ANY REFERENCE to 'scale_tips' parameter in the animation description, as this parameter is not supported in Manim CE 0.19.0.
-
-# In addition, generate a 4-choice multiple-choice question and a free-response question that can be asked at the end of the video.
-
-# Instead of always putting the correct answer first in the multiple-choice array, randomly place it at any position, and then specify which index (0, 1, 2, or 3) contains the correct answer in the "correct-index" field.
-
-# The answer for the free response should be a string.
-
-# Return the data in the following format:
-
-# {{
-# "narration": "string",
-# "animation-description": "string",
-# "free-response-question": "string",
-# "free-response-answer": "string",
-# "multiple-choice-question": "string",
-# "multiple-choice-choices": ["choice1 - string", "choice2 - string", "choice3 - string", "choice4 - string"],
-# "correct-index": integer (0-3)
-# }}
-
-# THE RESPONSE SHOULD ONLY BE A VALID PLAINTEXT JSON FORMAT. DO NOT OUTPUT MARKDOWN. DO NOT INCLUDE A PREAMBLE OR POSTAMBLE."""
-# )
-############################################################---- OLD PROMPT --------##########################################################################
 
 SCENE_AGENT_PROMPT_TEMPLATE = PromptTemplate(
     input_variables=["frame"],
@@ -188,16 +156,19 @@ class IntroductionToVector(Scene):
         self.wait(2)
 '''
 
+#used when ai responses with a json
 def generate_response(prompt):
     """Extract JSON from Claude's response"""
     message = model.invoke(prompt)
-    text = message.content
-    json_match = re.search(r"\{.*\}", text, re.DOTALL)
+    text = message.content  
+    json_match = re.search(r"\{.*\}", text, re.DOTALL) 
     if json_match:
+        #it basically returns the actual matched text
         return json_match.group(0)
     else:
         return ""
 
+#used when ai responses with a manim code instead of json 
 def generate_response_raw(prompt):
     """Get raw text response from Claude"""
     message = model.invoke(prompt)
@@ -245,7 +216,12 @@ def classify_input(user_input):
 
 def create_storyboard(audience, topic):
     """Generate a storyboard of frames to explain the topic"""
-    wikipedia_info = wikipedia.run(topic)
+    try:
+        wikipedia_info = wikipedia.run(topic)
+    except Exception as e:
+        print(f"Warning: Failed to fetch Wikipedia info for '{topic}': {e}")
+        wikipedia_info = f"Topic: {topic}. (Wikipedia lookup failed, using basic topic information)"
+    
     prompt = STORYBOARD_PROMPT_TEMPLATE.format(audience=audience, topic=topic, wikipedia_info=wikipedia_info)
     storyboard_json = generate_response(prompt)
     try:
@@ -461,34 +437,50 @@ def generate_educational_content(user_input):
     
     return result
 
-app = FastAPI()
-
-class prompt(BaseModel):
-    prompt:str
-
-@app.post("/process-data")
-async def index(item:prompt):
-    """API endpoint to generate educational content"""
+def render_and_upload_scenes(result):
+    """Render Manim scenes in an isolated temp directory, upload to Firebase,
+    and clean up both local files and old Firebase Storage videos."""
+    request_id = str(uuid.uuid4())
+    work_dir = os.path.join("temp_renders", request_id)
+    os.makedirs(work_dir, exist_ok=True)
+    
+    video_urls = []
+    
     try:
-        result = generate_educational_content(item.prompt)
-        video_urls=[]
+        # Clear old videos from Firebase Storage before uploading new ones
+        try:
+            blobs = list(bucket.list_blobs())
+            for blob in blobs:
+                if blob.name.endswith(".mp4"):
+                    blob.delete()
+                    print(f"Deleted old Firebase blob: {blob.name}")
+        except Exception as e:
+            print(f"Warning: Could not clean Firebase Storage: {e}")
+        
+        # Render each scene in the isolated directory
         for scene in result.get("scenes", []):
             manim_code = scene.get("manim_code", "No Manim code generated")
-            scene_number = scene.get("scene_number",1)
-            animation_file = f"animation_{scene_number}.py"
+            scene_number = scene.get("scene_number", 1)
+            animation_file = os.path.join(work_dir, f"animation_{scene_number}.py")
+        
             with open(animation_file, "w", encoding="utf-8") as f:
                 f.write(manim_code)
             print(f"Wrote file: {animation_file}")
 
             print(f"Starting Manim rendering for Scene{scene_number}...")
+            media_dir = os.path.join(work_dir, "media")
             process = subprocess.run(
-                ["manim", "-pql", "--progress_bar", "none", animation_file, f"Scene{scene_number}"],
+                ["manim", "-ql", "--media_dir", media_dir,
+                 "--progress_bar", "none", animation_file, f"Scene{scene_number}"],
                 capture_output=True,
                 text=True,
-                check=False 
+                check=False
             )
             
-            mp4_path= f"media/videos/animation_{scene_number}/480p15/Scene{scene_number}.mp4"
+            mp4_path = os.path.join(
+                media_dir, "videos",
+                f"animation_{scene_number}", "480p15", f"Scene{scene_number}.mp4"
+            )
 
             if os.path.exists(mp4_path):
                 file_name = f"{uuid.uuid4()}_Scene{scene_number}.mp4"
@@ -499,6 +491,61 @@ async def index(item:prompt):
                 print(f"Successfully uploaded {mp4_path} to Firebase")
             else:
                 print(f"Rendered video not found at {mp4_path}")
+                if process.stderr:
+                    print(f"Manim stderr: {process.stderr}")
+    
+    finally:
+        # Always clean up the local temp directory
+        shutil.rmtree(work_dir, ignore_errors=True)
+        print(f"Cleaned up temp directory: {work_dir}")
+    
+    return video_urls
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class prompt(BaseModel):
+    prompt:str
+
+class InputData(BaseModel):
+    data: str
+
+@app.post("/input-data")
+async def input_data(item: InputData):
+    """Accepts { data: string } from the frontend and returns educational content."""
+    try:
+        result = generate_educational_content(item.data)
+        video_urls = render_and_upload_scenes(result)
+
+        return {
+            "message": "Data sent to FastAPI",
+            "response": {
+                "status": "success",
+                "data": result,
+                "video_urls": video_urls,
+                "message": "Educational content generated successfully"
+            }
+        }
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"ERROR in /input-data: {str(e)}")
+        print(f"TRACEBACK: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Failed to process data: {str(e)}")
+
+@app.post("/process-data")
+async def index(item:prompt):
+    """API endpoint to generate educational content"""
+    try:
+        result = generate_educational_content(item.prompt)
+        video_urls = render_and_upload_scenes(result)
 
         return {
             "status": "success",

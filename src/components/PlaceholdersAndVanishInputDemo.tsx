@@ -7,7 +7,7 @@ import { MultiStepLoader } from "@/ui/multi-step-loader";
 
 export default function PlaceholdersAndVanishInputDemo() {
   const navigate = useNavigate();
-  const [inputValue, setInputValue] = React.useState("");
+  const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const placeholders = [
@@ -32,10 +32,10 @@ export default function PlaceholdersAndVanishInputDemo() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:3001/input-data", {
+      const response = await axios.post("http://localhost:8000/input-data", {
         data: inputValue,
       });
-      console.log(response.data);
+      console.log(`The response from backend is ${response.data}`);
 
       navigate("/learning", {
         state: {

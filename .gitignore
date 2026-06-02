@@ -26,3 +26,5 @@ dist-ssr
 .env
 backend/venv/
 backend/lerno-13022-firebase-adminsdk-fbsvc-a78f0ef735.json
+backend/temp_renders/
+backend/media/
