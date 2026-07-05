@@ -1,0 +1,4 @@
+fastapi>=0.104.0
+uvicorn[standard]>=0.23.2
+python-socketio[asyncio_client]>=5.11.0
+python-engineio>=4.9.0

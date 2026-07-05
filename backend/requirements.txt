@@ -30,4 +30,8 @@ pygments>=2.16.1
 tqdm>=4.66.1
 
 # Prevent watchfiles automatic reload
-watchfiles>=0.20.0 
+watchfiles>=0.20.0
+
+# --- COLLAB FEATURE dependencies (added 2026-07-04) ---
+python-socketio[asyncio_client]>=5.11.0
+python-engineio>=4.9.0

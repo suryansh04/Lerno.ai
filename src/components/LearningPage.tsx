@@ -12,7 +12,9 @@ import { storage, db } from "./firebaseConfig";
 import axios from "axios";
 import { FiChevronDown, FiX, FiSave, FiEdit3, FiTrash2 } from "react-icons/fi";
 import { FloatingDock } from "@/ui/floating-dock";
-import { Phone, BookOpen } from "lucide-react";
+import { Phone, BookOpen, Users } from "lucide-react";
+// COLLAB FEATURE: new import (added 2026-07-04) — remove this line to revert
+import CollabPanel from "../collab/CollabPanel";
 
 const MURF_API_KEY = import.meta.env.VITE_MURF_API;
 
@@ -535,6 +537,9 @@ const LearningPage = () => {
     }
   };
 
+  // COLLAB FEATURE: state for the collab panel drawer (added 2026-07-04) — remove with the import + JSX below to revert
+  const [showCollabPanel, setShowCollabPanel] = useState(false);
+
   // Floating dock items
   const dockItems = [
     {
@@ -548,6 +553,13 @@ const LearningPage = () => {
       icon: <Phone className="h-full w-full text-white/80" />,
       href: "#",
       onClick: () => setShowCallModal(true),
+    },
+    // COLLAB FEATURE: dock item (added 2026-07-04) — remove this object to revert
+    {
+      title: "Collab",
+      icon: <Users className="h-full w-full text-white/80" />,
+      href: "#",
+      onClick: () => setShowCollabPanel(true),
     },
   ];
 
@@ -1135,6 +1147,15 @@ const LearningPage = () => {
             </div>
           </div>
         )}
+
+        {/* COLLAB FEATURE: CollabPanel drawer (added 2026-07-04) — remove this block and the import/state above to revert */}
+        <CollabPanel
+          isOpen={showCollabPanel}
+          onClose={() => setShowCollabPanel(false)}
+          lessonId={currentSlide?.title || "default-lesson"}
+          groupSessionId="default"
+          displayName={localStorage.getItem("userName") || undefined}
+        />
       </div>
     </>
   );

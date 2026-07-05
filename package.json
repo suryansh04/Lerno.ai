@@ -11,8 +11,13 @@
   },
   "dependencies": {
     "@11labs/react": "^0.1.0",
+    "@blocknote/core": "^0.51.4",
+    "@blocknote/react": "^0.51.4",
     "@google/generative-ai": "^0.24.0",
     "@tailwindcss/vite": "^4.0.14",
+    "@tiptap/extension-collaboration": "^3.27.1",
+    "@tiptap/y-tiptap": "^3.0.6",
+    "@tldraw/tldraw": "^5.2.2",
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.8.1",
     "axios": "^1.9.0",
@@ -36,13 +41,16 @@
     "react-text-to-speech": "^1.4.3",
     "react-tsparticles": "^2.12.2",
     "simplex-noise": "^4.0.3",
+    "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.0.14",
     "tailwindcss-animate": "^1.0.7",
     "tsparticles": "^3.8.1",
     "tsparticles-engine": "^2.12.0",
     "tsparticles-slim": "^2.12.0",
-    "twilio": "^5.7.1"
+    "twilio": "^5.7.1",
+    "y-prosemirror": "^1.3.7",
+    "yjs": "^13.6.31"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
