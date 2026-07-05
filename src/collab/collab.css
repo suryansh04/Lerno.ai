@@ -1,0 +1,72 @@
+/**
+ * Collab panel — minimal CSS for things Tailwind cannot express.
+ * All layout/color/spacing is done inline via Tailwind in the components.
+ *
+ * This file only handles:
+ *   1. slide-in-right keyframe animation
+ *   2. thin scrollbar styling
+ *   3. tldraw canvas container sizing
+ *   4. BlockNote dark theme overrides
+ */
+
+/* ── Drawer slide-in animation ────────────────────────────────────────── */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ── Scrollbar — thin, unobtrusive ────────────────────────────────────── */
+.collab-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.06) transparent;
+}
+
+.collab-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+
+.collab-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.collab-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 99px;
+}
+
+.collab-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ── tldraw canvas container ──────────────────────────────────────────── */
+.collab-canvas-container {
+  height: 420px;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: border-color 0.2s ease;
+}
+
+.collab-canvas-container:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── BlockNote overrides — force transparent bg in dark mode ──────────── */
+.bn-container[data-color-scheme="dark"] {
+  --bn-colors-editor-background: transparent !important;
+}
+
+.bn-editor {
+  min-height: 260px;
+}

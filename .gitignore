@@ -6,6 +6,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.env
+backend/.env
 
 node_modules
 dist
@@ -25,6 +27,17 @@ dist-ssr
 .env4
 .env
 backend/venv/
+backend/.venv/
 backend/lerno-13022-firebase-adminsdk-fbsvc-a78f0ef735.json
 backend/temp_renders/
 backend/media/
+
+# Collab server — standalone dev server (added 2026-07-05)
+collab-server/venv/
+collab-server/.venv/
+collab-server/collab_snapshots/
+
+# Python bytecode — never commit these
+**/__pycache__/
+**/*.pyc
+**/*.pyo

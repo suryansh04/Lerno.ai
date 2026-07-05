@@ -558,3 +558,8 @@ async def index(item:prompt):
         error_details = traceback.format_exc()
         print(f"ERROR: {str(e)}")
         print(f"TRACEBACK: {error_details}")
+
+# --- COLLAB FEATURE MOUNT (added 2026-07-04) — revert these 3 lines to remove the feature ---
+# NOTE: Uvicorn entrypoint changes from `main:app` to `main:socket_app` when this is active.
+from collab.collab_socket import socket_app as socket_app  # noqa: E402  (import after app init is intentional)
+socket_app.other_asgi_app = app  # attach existing FastAPI app so REST routes still work

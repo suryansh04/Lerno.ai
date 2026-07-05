@@ -10,4 +10,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    watch: {
+      // Prevent auto-refresh when collab-server writes snapshots or backend venv changes
+      ignored: ["**/collab-server/**", "**/backend/**"],
+    },
+  },
 });
