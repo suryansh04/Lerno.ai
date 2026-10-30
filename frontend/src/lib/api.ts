@@ -21,6 +21,8 @@ export interface Scene {
   video_url: string | null;
   thumbnail_url: string | null;
   duration_seconds: number | null;
+  // When each narration word is spoken, one per space-separated word; null for silent scenes.
+  word_starts_ms: number[] | null;
   mcq_question: string;
   mcq_choices: string[];
   mcq_correct_index: number;

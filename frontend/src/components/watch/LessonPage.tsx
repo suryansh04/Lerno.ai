@@ -1,4 +1,4 @@
-import { CornersIn, CornersOut, NotePencil, Pause } from "@phosphor-icons/react";
+import { CornersIn, CornersOut, NotePencil, Pause, SpeakerSlash } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { ICON_BUTTON } from "@/components/app/Sidebar";
@@ -58,6 +58,7 @@ export default function LessonPage({ lesson, refresh, className }: LessonPagePro
   const [notesFocus, setNotesFocus] = useState<{ ids: string[]; at: number } | null>(null);
   const [notepadAt, setNotepadAt] = useState<number | null>(null);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [railRight, setRailRight] = useState(savedScenesRail);
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine);
 
@@ -99,6 +100,22 @@ export default function LessonPage({ lesson, refresh, className }: LessonPagePro
     setProgress((p) => (fraction > (p[scene] ?? 0) ? { ...p, [scene]: fraction } : p));
   }, [scene]);
 
+  // Browsers, iPhones most of all, can refuse sound when play does not start inside a tap. The scene then plays
+  // muted and offers its sound, instead of not starting at all.
+  const playVideo = useCallback((v: HTMLVideoElement) => {
+    v.play().catch((error: DOMException) => {
+      if (error.name !== "NotAllowedError" || v.muted) return;
+      v.muted = true;
+      setMuted(true);
+      v.play().catch(() => {});
+    });
+  }, []);
+
+  const unmute = () => {
+    if (video.current) video.current.muted = false;
+    setMuted(false);
+  };
+
   const go = useCallback(
     (position: number, at = 0, play = true) => {
       keepProgress();
@@ -111,18 +128,22 @@ export default function LessonPage({ lesson, refresh, className }: LessonPagePro
       const v = video.current;
       if (position === scene && v && v.readyState > 0) {
         v.currentTime = at;
-        if (play) v.play().catch(() => {});
-      } else setScene(position);
+        if (play) playVideo(v);
+      } else {
+        // A new scene gets a new video element, which starts with its sound on.
+        setMuted(false);
+        setScene(position);
+      }
     },
-    [scene, keepProgress],
+    [scene, keepProgress, playVideo],
   );
 
   const toggle = useCallback(() => {
     const v = video.current;
     if (!v || overlay) return;
-    if (v.paused) v.play().catch(() => {});
+    if (v.paused) playVideo(v);
     else v.pause();
-  }, [overlay]);
+  }, [overlay, playVideo]);
 
   const finishScene = () => {
     video.current?.pause();
@@ -270,7 +291,7 @@ export default function LessonPage({ lesson, refresh, className }: LessonPagePro
                   const { at, play } = pending.current;
                   setDuration(v.duration);
                   if (at > 0 && at < v.duration) v.currentTime = at;
-                  if (play) v.play().catch(() => {});
+                  if (play) playVideo(v);
                 }}
                 onTimeUpdate={(event) => (timeNow.current = event.currentTarget.currentTime)}
                 onPlay={() => setPlaying(true)}
@@ -335,6 +356,16 @@ export default function LessonPage({ lesson, refresh, className }: LessonPagePro
                 >
                   <PlayIcon size={28} className="text-background" />
                 </button>
+                {muted && current.word_starts_ms && (
+                  <button
+                    type="button"
+                    onClick={unmute}
+                    className="text-foreground absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-[#16171f]/90 px-3 py-1.5 text-xs font-medium shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)] hover:bg-[#1f2029] sm:top-4 sm:left-4"
+                  >
+                    <SpeakerSlash size={15} />
+                    Tap for sound
+                  </button>
+                )}
                 <div className="text-secondary-foreground absolute inset-x-2 bottom-1.5 flex items-center gap-1.5 text-xs tabular-nums sm:inset-x-4 sm:bottom-3.5 sm:gap-3.5">
                   <button type="button" onClick={toggle} aria-label={playing ? "Pause" : "Play"} className={CONTROL}>
                     {playing ? <Pause size={18} weight="fill" /> : <PlayIcon size={16} />}
@@ -403,9 +434,13 @@ export default function LessonPage({ lesson, refresh, className }: LessonPagePro
             )}
           </div>
 
-          {/* The narration under the film, like subtitles; the sentence being spoken is lit. */}
           {/* On phones the quiz fills the film, so the finished scene's narration steps aside for it. */}
-          <Narration video={videoEl} text={current.narration} className={cn(overlay && "max-sm:hidden")} />
+          <Narration
+            video={videoEl}
+            text={current.narration}
+            wordStarts={current.word_starts_ms}
+            className={cn(overlay && "max-sm:hidden")}
+          />
         </div>
       </div>
 
@@ -468,14 +503,49 @@ function TimeLabel({ video, duration }: { video: HTMLVideoElement | null; durati
   );
 }
 
-// The narration under the film, like subtitles; the sentence being spoken is lit.
-function Narration({ video, text, className }: { video: HTMLVideoElement | null; text: string; className?: string }) {
-  const sentences = text.match(/[^.?!]+[.?!]*/g) ?? [text];
+// Words grouped in sentences, split the way the server splits, so word k here is word k of the voice.
+function sentencesOf(text: string) {
+  const sentences: string[][] = [[]];
+  for (const word of text.trim().split(/\s+/)) {
+    sentences[sentences.length - 1].push(word);
+    if (/[.!?]$/.test(word)) sentences.push([]);
+  }
+  return sentences.filter((words) => words.length);
+}
+
+// The last word that has started at this time; -1 before the voice begins.
+function wordAt(starts: number[], ms: number) {
+  let k = -1;
+  while (k + 1 < starts.length && starts[k + 1] <= ms) k++;
+  return k;
+}
+
+// The narration under the film, like subtitles. A voiced scene lights each word as it is spoken; an older, silent
+// scene lights the sentence its share of the video has reached.
+function Narration({
+  video,
+  text,
+  wordStarts,
+  className,
+}: {
+  video: HTMLVideoElement | null;
+  text: string;
+  wordStarts: number[] | null;
+  className?: string;
+}) {
+  const sentences = sentencesOf(text);
+  const firsts = sentences.map((_, s) => sentences.slice(0, s).reduce((sum, words) => sum + words.length, 0));
+  const timed = wordStarts?.length === sentences.flat().length ? wordStarts : null;
   const lit = useVideoTime(
     video,
     (v) =>
-      v.duration ? Math.min(sentences.length - 1, Math.floor((v.currentTime / v.duration) * sentences.length)) : 0,
+      timed
+        ? wordAt(timed, v.currentTime * 1000)
+        : v.duration
+          ? Math.min(sentences.length - 1, Math.floor((v.currentTime / v.duration) * sentences.length))
+          : 0,
     0,
+    !!timed,
   );
   return (
     <p
@@ -484,11 +554,26 @@ function Narration({ video, text, className }: { video: HTMLVideoElement | null;
         className,
       )}
     >
-      {sentences.map((sentence, k) => (
-        <span key={k} className={cn("transition-colors duration-[400ms]", k === lit && "text-foreground")}>
-          {sentence.trim()}{" "}
-        </span>
-      ))}
+      {sentences.map((words, s) =>
+        timed ? (
+          <span key={s}>
+            {words.map((word, w) => {
+              const k = firsts[s] + w;
+              // Only the sentence being spoken is lit, up to the word being spoken.
+              const spoken = k <= lit && lit < firsts[s] + words.length;
+              return (
+                <span key={w} className={cn("transition-colors duration-150", spoken && "text-foreground")}>
+                  {word}{" "}
+                </span>
+              );
+            })}
+          </span>
+        ) : (
+          <span key={s} className={cn("transition-colors duration-[400ms]", s === lit && "text-foreground")}>
+            {words.join(" ")}{" "}
+          </span>
+        ),
+      )}
     </p>
   );
 }

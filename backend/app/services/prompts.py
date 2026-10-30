@@ -1,5 +1,6 @@
 from app.config import SCENES_PER_LESSON
 from app.schemas import ScenePlan
+from app.services.voice import Sentence
 
 AUDIENCES = {
     "school": "a school student",
@@ -18,7 +19,6 @@ Rules:
 - Start with: from lerno_theme import *
   (it includes all of manim and sets Lerno's fonts, colours, background and line style; never override them)
 - Define exactly one class: class LessonScene(Scene)
-- 12 to 20 seconds long: reveal the idea step by step in 5 to 7 self.play() calls, with self.wait() between them
 - Show every label, number and equation the description names, with its exact text; they carry the explanation
 - Simple sequential animations only: no loops, comprehensions, custom functions, randomness or if statements
 - Use only: scene_label, Text, MathTex, Axes, NumberPlane, Arrow, Line, DashedLine, Dot, Circle, Square, Rectangle,
@@ -84,7 +84,9 @@ Give the whole lesson a title: a short name of at most 5 words in plain text, fo
 
 For each scene give:
 - title: at most 5 words
-- narration: read aloud to the student, 20-30 words; say what appears and why it matters, in the order it appears
+- narration: read aloud to the student by a voice: 2 or 3 short sentences, 20-30 words in all, each ending with a
+  full stop; say what appears and why it matters, in the order it appears; write all maths as spoken words
+  ("y equals x squared", "one half"), never symbols or digits, and no abbreviations
 - animation_description: 5 to 7 numbered steps in the order they are animated; for each step say what appears, its
   exact text (every label and equation), its colour (one of {COLORS}), and where it is placed (left, right of the
   diagram, below); work out every number shown and check it, so the animation never has to calculate
@@ -95,12 +97,31 @@ For each scene give:
   and its model answer"""
 
 
-def manim_prompt(scene: ScenePlan) -> str:
-    return f"{MANIM_RULES}\nScene title: {scene.title}\nNarration: {scene.narration}\nOn screen: {scene.animation_description}"
+def _timing(sentences: list[Sentence]) -> str:
+    lines = "\n".join(
+        f'{number}. starts at about {s.start:.1f} s, lasts about {s.end - s.start:.1f} s: "{" ".join(s.text.split())}"'
+        for number, s in enumerate(sentences, 1)
+    )
+    return f"""A voice reads the narration over the video, one sentence at a time:
+{lines}
+Show what each sentence describes while it is spoken: put self.sentence(n) on its own line right before the animations
+for sentence n, including self.sentence(1); it waits until the voice reaches that sentence. Fit each sentence's
+animations into its time (a play takes 1 second unless you set run_time), use 5 to 7 self.play() calls in all, and
+end with self.wait(1)."""
 
 
-def fix_prompt(code: str, error: str) -> str:
-    return f"{MANIM_RULES}\nThis code failed to render:\n\n{code}\n\nError:\n{error}\n\nReturn the corrected full code."
+def manim_prompt(scene: ScenePlan, sentences: list[Sentence]) -> str:
+    return (
+        f"{MANIM_RULES}\n{_timing(sentences)}\n\n"
+        f"Scene title: {scene.title}\nNarration: {scene.narration}\nOn screen: {scene.animation_description}"
+    )
+
+
+def fix_prompt(code: str, error: str, sentences: list[Sentence]) -> str:
+    return (
+        f"{MANIM_RULES}\n{_timing(sentences)}\n\n"
+        f"This code failed to render:\n\n{code}\n\nError:\n{error}\n\nReturn the corrected full code."
+    )
 
 
 def tutor_prompt(topic: str, audience: str, scenes: list[dict], scene_position: int, time_seconds: float) -> str:

@@ -25,7 +25,7 @@ router = APIRouter(prefix="/lessons")
 
 LESSON_FIELDS = ("id", "topic", "title", "audience", "status", "step", "error", "created_at")
 SCENE_FIELDS = (
-    "position", "title", "narration", "video_path", "duration_seconds",
+    "position", "title", "narration", "video_path", "duration_seconds", "word_starts_ms",
     "mcq_question", "mcq_choices", "mcq_correct_index", "fr_question", "fr_answer",
 )
 

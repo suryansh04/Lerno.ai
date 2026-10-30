@@ -12,7 +12,8 @@ from app.config import (
 )
 from app.db import db, now_iso, thumbnail_path, window_start
 from app.schemas import ScenePlan
-from app.services import llm, renderer
+from app.services import llm, renderer, voice
+from app.services.voice import Sentence, Voice
 
 MAX_FIXES = 2
 ACTIVE = ["queued", "generating"]
@@ -37,18 +38,22 @@ def _upload_thumbnail(lesson_id: str, position: int, thumbnail: bytes) -> None:
         log.exception("Thumbnail upload for scene %s of lesson %s failed", position, lesson_id)
 
 
-def _animate(lesson: dict, position: int, code: str) -> tuple[dict, str]:
+def _animate(lesson: dict, position: int, code: str, spoken: Voice | None, sentences: list[Sentence]) -> tuple[dict, str]:
     for attempt in range(MAX_FIXES + 1):
-        rendered, error = renderer.render(code)
+        rendered, error = renderer.render(code, spoken)
         if rendered:
             path = f"{lesson['user_id']}/{lesson['id']}/scene_{position}.mp4"
             db.storage.from_(VIDEO_BUCKET).upload(path, rendered.video, {"content-type": "video/mp4", "upsert": "true"})
             if rendered.thumbnail:
                 _upload_thumbnail(lesson["id"], position, rendered.thumbnail)
-            return {"video_path": path, "duration_seconds": rendered.duration}, code
+            return {
+                "video_path": path,
+                "duration_seconds": rendered.duration,
+                "word_starts_ms": rendered.word_starts_ms,
+            }, code
         log.warning("Scene %s render failed (attempt %s): %s", position, attempt + 1, error[-500:])
         if attempt < MAX_FIXES:
-            code = llm.fix_manim(code, error)
+            code = llm.fix_manim(code, error, sentences)
     return {}, code
 
 
@@ -56,9 +61,14 @@ def _scene_row(lesson: dict, position: int, scene: ScenePlan) -> dict:
     code, video = None, {}
     # One scene crashing must not take down the other two.
     try:
-        code = llm.write_manim(scene)
+        # The code only needs estimated sentence lengths, so Murf speaks while it is written.
+        estimated = voice.estimate(scene.narration)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            speaking = pool.submit(voice.narrate, scene.narration)
+            code = llm.write_manim(scene, estimated)
+        spoken = speaking.result()
         _update(lesson["id"], step=3)
-        video, code = _animate(lesson, position, code)
+        video, code = _animate(lesson, position, code, spoken, spoken.sentences if spoken else estimated)
     except Exception:
         log.exception("Scene %s of lesson %s crashed", position, lesson["id"])
     return {
@@ -67,6 +77,7 @@ def _scene_row(lesson: dict, position: int, scene: ScenePlan) -> dict:
         "manim_code": code,
         "video_path": None,
         "duration_seconds": None,
+        "word_starts_ms": None,
         **video,
         **scene.model_dump(exclude={"animation_description"}),
     }

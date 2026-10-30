@@ -1,9 +1,17 @@
 # Runs only in the render sandbox; scenes import this instead of manim.
 
+import json
+from pathlib import Path
+
 import manim
 from manim import *  # noqa: F403
 
 config.background_color = "#050609"
+
+# The renderer writes when each narration sentence starts; a silent scene has no file.
+TIMING_FILE = Path("timing.json")
+MARKS_FILE = Path("marks.json")
+SENTENCE_STARTS = json.loads(TIMING_FILE.read_text()) if TIMING_FILE.exists() else []
 
 # One brightness for every colour, so nothing shouts and everything stays readable on the dark background.
 INK = ManimColor("#f5f5f7")
@@ -76,6 +84,8 @@ class NumberPlane(manim.NumberPlane):
 
 
 class Scene(manim.Scene):
+    sentence_delay = 0.0
+
     # Cut-off text is the most common layout bug; failing here sends the exact problem to the fix step.
     def play(self, *args, **kwargs):
         super().play(*args, **kwargs)
@@ -84,6 +94,17 @@ class Scene(manim.Scene):
     def wait(self, *args, **kwargs):
         super().wait(*args, **kwargs)
         self._check_text_fits()
+
+    def sentence(self, number):
+        # Holds the picture until the voice reaches this sentence. A picture that runs late moves this sentence and
+        # every later one by the same amount; the real time is kept, so the voice starts where the picture does.
+        if 0 < number <= len(SENTENCE_STARTS):
+            planned = SENTENCE_STARTS[number - 1]
+            if planned + self.sentence_delay > self.renderer.time:
+                self.wait(planned + self.sentence_delay - self.renderer.time)
+            self.sentence_delay = self.renderer.time - planned
+        marks = json.loads(MARKS_FILE.read_text()) if MARKS_FILE.exists() else {}
+        MARKS_FILE.write_text(json.dumps({**marks, number: self.renderer.time}))
 
     def _check_text_fits(self):
         half_width, half_height = config.frame_width / 2, config.frame_height / 2

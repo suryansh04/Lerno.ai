@@ -24,6 +24,8 @@ create table scenes (
   video_path text,
   -- The video's length, saved with its thumbnail so pages need not open the video.
   duration_seconds real,
+  -- When each narration word starts, one per space-separated word, so the page lights words as they are spoken.
+  word_starts_ms int[],
   mcq_question text not null,
   mcq_choices jsonb not null,
   mcq_correct_index int not null,

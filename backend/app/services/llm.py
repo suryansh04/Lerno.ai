@@ -5,6 +5,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.schemas import LessonPlan, ManimCode, ScenePlan
 from app.services import prompts
+from app.services.voice import Sentence
 
 PLANNER = "claude-sonnet-5-5"
 TUTOR = "claude-haiku-5-5"
@@ -35,12 +36,12 @@ def plan_lesson(topic: str, audience: str) -> LessonPlan:
         return _ask(prompt, LessonPlan, "high")
 
 
-def write_manim(scene: ScenePlan) -> str:
-    return _ask(prompts.manim_prompt(scene), ManimCode, "medium").code
+def write_manim(scene: ScenePlan, sentences: list[Sentence]) -> str:
+    return _ask(prompts.manim_prompt(scene, sentences), ManimCode, "medium").code
 
 
-def fix_manim(code: str, error: str) -> str:
-    return _ask(prompts.fix_prompt(code, error), ManimCode, "medium").code
+def fix_manim(code: str, error: str, sentences: list[Sentence]) -> str:
+    return _ask(prompts.fix_prompt(code, error, sentences), ManimCode, "medium").code
 
 
 def tutor_reply(system: str, messages: list[dict]) -> str:

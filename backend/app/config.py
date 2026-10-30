@@ -5,6 +5,8 @@ SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 # A comma-separated list: the live site and local development.
 FRONTEND_URLS = [url.strip().rstrip("/") for url in os.environ["FRONTEND_URL"].split(",")]
 IS_PRODUCTION = os.environ.get("ENVIRONMENT", "production") == "production"
+# Optional: without it, lessons are made without a voice.
+MURF_API_KEY = os.environ.get("MURF_API_KEY")
 
 SCENES_PER_LESSON = 3
 DAILY_LESSON_LIMIT = 3
