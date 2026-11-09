@@ -13,7 +13,7 @@ const MIN_STEP_MS = 1200;
 // After the last slab lights, a short pause before the lesson opens.
 const OPEN_DELAY_MS = 1200;
 
-/** Which slab a lesson is at: Plan, Write or Render while it is made, Ready at the end, and the step it failed at. */
+/** Which slab a lesson is at: Plan, Write or Animate while it is made, Ready at the end, and the step it failed at. */
 function slabOf(lesson: LessonWithScenes) {
   if (lesson.status === "ready") return READY;
   return Math.min(Math.max(lesson.step - 1, 0), READY - 1);
