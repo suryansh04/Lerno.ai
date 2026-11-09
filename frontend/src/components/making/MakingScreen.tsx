@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import Dust from "@/components/making/Dust";
 import SlabStack from "@/components/making/SlabStack";
@@ -122,12 +122,19 @@ export default function MakingScreen({ lesson, offline, onReady }: MakingScreenP
             <p className="text-danger max-w-[380px] text-[13px]">{lesson.error}</p>
             <button
               type="button"
-              onClick={() => navigate("/new", { state: { topic: lesson.topic, level: lesson.audience } })}
+              onClick={() => navigate("/new", { state: { topic: lesson.topic, level: lesson.audience, send: true } })}
               className="bg-foreground text-background mt-2.5 h-[42px] rounded-[10px] px-5 font-semibold shadow-[0_0_32px_rgba(155,124,255,0.3)] transition-[box-shadow,scale] duration-300 hover:shadow-[0_0_44px_rgba(155,124,255,0.5)] active:scale-[0.985]"
             >
               Try again
             </button>
-            <p className="text-secondary-foreground max-w-[380px] text-[13px]">
+            <Link
+              to="/new"
+              state={{ topic: lesson.topic, level: lesson.audience }}
+              className="text-accent-soft hover:text-foreground decoration-accent-soft/40 mt-1 text-[13px] underline underline-offset-4 transition-colors duration-200 hover:decoration-current"
+            >
+              Change the question
+            </Link>
+            <p className="text-muted-foreground mt-1 max-w-[380px] text-xs">
               Failed lessons don't use up your daily lessons.
             </p>
           </>

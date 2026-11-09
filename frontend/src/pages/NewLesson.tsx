@@ -1,6 +1,6 @@
 import { CaretDown } from "@phosphor-icons/react";
 import { AnimatePresence, m } from "motion/react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutletContext } from "react-router";
 
 import AskBox, { MAX_QUESTION } from "@/components/app/AskBox";
@@ -51,8 +51,8 @@ const COUNTER_FROM = 180;
 export default function NewLesson() {
   const { lessons, usage, failed, lastCounts, reload } = useOutletContext<AppData>();
   const navigate = useNavigate();
-  // "Try again" on a failed lesson brings its topic and level here, in the box but not sent.
-  const retry = useLocation().state as { topic: string; level: Level } | null;
+  // A failed lesson's "Try again" sends its topic and level at once; "Change the question" only fills the box.
+  const retry = useLocation().state as { topic: string; level: Level; send?: boolean } | null;
   const [question, setQuestion] = useState(retry?.topic ?? "");
   const [level, setLevel] = useState(retry?.level ?? savedLevel());
   const [sending, setSending] = useState(false);
@@ -94,6 +94,15 @@ export default function NewLesson() {
       void reload();
     }
   };
+
+  // Sent once: the history entry loses "send", so Back to this page doesn't send it again.
+  const retried = useRef(false);
+  useEffect(() => {
+    if (!retry?.send || retried.current) return;
+    retried.current = true;
+    navigate(".", { replace: true, state: { topic: retry.topic, level: retry.level } });
+    void submit();
+  });
 
   const openLesson = useCallback(() => navigate(`/lesson/${madeId}`), [madeId, navigate]);
 
