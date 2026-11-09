@@ -116,7 +116,7 @@ def run(lesson_id: str, language: str | None = None, start_dub: Callable[[str, s
                 _voice(lesson, language, start_dub)
             _finish(lesson_id, status="ready")
         else:
-            _finish(lesson_id, status="failed", error="We couldn't animate this topic. Try rephrasing it.")
+            _finish(lesson_id, status="failed", error="We couldn't animate this topic. Try again, or change the question.")
     except Exception:
         log.exception("Lesson %s failed", lesson_id)
         _finish(lesson_id, status="failed", error="Something went wrong while creating this lesson. Please try again.")
