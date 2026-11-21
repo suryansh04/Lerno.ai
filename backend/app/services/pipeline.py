@@ -41,7 +41,7 @@ def _upload_thumbnail(lesson_id: str, position: int, thumbnail: bytes) -> None:
 
 def _animate(lesson: dict, position: int, code: str, spoken: Voice | None, sentences: list[Sentence]) -> tuple[dict, str]:
     for attempt in range(MAX_FIXES + 1):
-        rendered, error = renderer.render(code, spoken)
+        rendered, error = renderer.render(code, spoken, allow_overlap=attempt == MAX_FIXES)
         if rendered:
             path = f"{lesson['user_id']}/{lesson['id']}/scene_{position}.mp4"
             db.storage.from_(VIDEO_BUCKET).upload(path, rendered.video, {"content-type": "video/mp4", "upsert": "true"})

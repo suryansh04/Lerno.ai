@@ -29,6 +29,7 @@ THUMBNAIL_FILE = f"{WORK_DIR}/thumbnail.webp"
 # The scene kit reads the sentence starts and writes where the picture really reached each one.
 TIMING_FILE = f"{WORK_DIR}/timing.json"
 MARKS_FILE = f"{WORK_DIR}/marks.json"
+OVERLAP_ALLOWED_FILE = f"{WORK_DIR}/overlap_allowed"
 VOICE_FILE = f"{WORK_DIR}/voice.wav"
 LOGO_OVERLAY = "[1]scale=-1:40,format=rgba,colorchannelmixer=aa=0.55[logo];[base][logo]overlay=W-w-26:H-h-22"
 # Where the drawing is mostly done.
@@ -125,13 +126,15 @@ def _thumbnail(sandbox: modal.Sandbox, video: str, duration: float) -> bytes | N
     return None
 
 
-def render(code: str, spoken: Voice | None) -> tuple[Rendered | None, str]:
+def render(code: str, spoken: Voice | None, allow_overlap: bool = False) -> tuple[Rendered | None, str]:
     # AI-written code only ever runs here: isolated, no network, no secrets.
     sandbox = modal.Sandbox.create(image=MANIM_IMAGE, block_network=True, timeout=300, cpu=2, memory=2048)
     try:
         sandbox.filesystem.write_text(code, f"{WORK_DIR}/scene.py")
         if spoken:
             sandbox.filesystem.write_text(json.dumps([s.start for s in spoken.sentences]), TIMING_FILE)
+        if allow_overlap:
+            sandbox.filesystem.write_text("", OVERLAP_ALLOWED_FILE)
         # Linux timeout, not Modal's: above 60 seconds Modal raises an error instead of reporting the time-out.
         manim = _run(sandbox, "timeout", str(MANIM_SECONDS), "manim", "-qm", "--progress_bar", "none", "scene.py", "LessonScene")
         if manim.returncode != 0:

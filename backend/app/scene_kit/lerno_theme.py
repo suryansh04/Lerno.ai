@@ -11,6 +11,10 @@ config.background_color = "#050609"
 # The renderer writes when each narration sentence starts; a silent scene has no file.
 TIMING_FILE = Path("timing.json")
 MARKS_FILE = Path("marks.json")
+# The renderer leaves this file on the last try, so an overlap alone never costs the scene.
+OVERLAP_ALLOWED = Path("overlap_allowed").exists()
+# Text boxes sharing more than this part of the smaller one count as overlapping; touching edges don't.
+OVERLAP_SHARE = 0.15
 SENTENCE_STARTS = json.loads(TIMING_FILE.read_text()) if TIMING_FILE.exists() else []
 
 # One brightness for every colour, so nothing shouts and everything stays readable on the dark background.
@@ -86,14 +90,14 @@ class NumberPlane(manim.NumberPlane):
 class Scene(manim.Scene):
     sentence_delay = 0.0
 
-    # Cut-off text is the most common layout bug; failing here sends the exact problem to the fix step.
+    # Cut-off and overlapping text are the most common layout bugs; failing here sends the exact problem to the fix step.
     def play(self, *args, **kwargs):
         super().play(*args, **kwargs)
-        self._check_text_fits()
+        self._check_text()
 
     def wait(self, *args, **kwargs):
         super().wait(*args, **kwargs)
-        self._check_text_fits()
+        self._check_text()
 
     def sentence(self, number):
         # Holds the picture until the voice reaches this sentence. A picture that runs late moves this sentence and
@@ -106,17 +110,25 @@ class Scene(manim.Scene):
         marks = json.loads(MARKS_FILE.read_text()) if MARKS_FILE.exists() else {}
         MARKS_FILE.write_text(json.dumps({**marks, number: self.renderer.time}))
 
-    def _check_text_fits(self):
+    def _check_text(self):
         half_width, half_height = config.frame_width / 2, config.frame_height / 2
-        for text in _texts(self.mobjects):
-            left, bottom, _ = text.get_corner(DL)
-            right, top, _ = text.get_corner(UR)
+        texts = [text for text in _texts(self.mobjects) if _visible(text)]
+        for text in texts:
+            left, bottom, right, top = _box(text)
             if left < -half_width or right > half_width or bottom < -half_height or top > half_height:
-                words = getattr(text, "original_text", None) or getattr(text, "tex_string", "")
                 raise ValueError(
-                    f"Text {words!r} goes off the screen. Keep all text inside x from -6 to 6 and y from -3.4 to 2.7: "
-                    "shorten it, split it over two lines, or move it below the diagram."
+                    f"Text {_words(text)!r} goes off the screen. Keep all text inside x from -6 to 6 and y from -3.4 "
+                    "to 2.7: shorten it, split it over two lines, or move it below the diagram."
                 )
+        if OVERLAP_ALLOWED:
+            return
+        for index, first in enumerate(texts):
+            for second in texts[index + 1 :]:
+                if _shared(_box(first), _box(second)) > OVERLAP_SHARE:
+                    raise ValueError(
+                        f"Text {_words(first)!r} overlaps text {_words(second)!r}. Move one to an empty spot with "
+                        ".next_to(..., buff=0.3), or FadeOut the old text in the same play that shows the new one."
+                    )
 
 
 def _texts(mobjects):
@@ -128,6 +140,30 @@ def _texts(mobjects):
             yield mobject
         else:
             yield from _texts(mobject.submobjects)
+
+
+def _visible(text) -> bool:
+    return any(part.get_fill_opacity() > 0.1 for part in text.family_members_with_points())
+
+
+def _box(text) -> tuple[float, float, float, float]:
+    left, bottom, _ = text.get_corner(DL)
+    right, top, _ = text.get_corner(UR)
+    return left, bottom, right, top
+
+
+# The part of the smaller box that the two boxes share.
+def _shared(a, b) -> float:
+    width = min(a[2], b[2]) - max(a[0], b[0])
+    height = min(a[3], b[3]) - max(a[1], b[1])
+    if width <= 0 or height <= 0:
+        return 0
+    smaller = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
+    return width * height / smaller if smaller > 0 else 0
+
+
+def _words(text) -> str:
+    return getattr(text, "original_text", None) or getattr(text, "tex_string", "")
 
 
 def scene_label(text: str) -> VGroup:
